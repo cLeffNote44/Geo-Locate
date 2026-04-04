@@ -34,10 +34,10 @@ export function useWorldMap(): WorldMapResult {
           topo.objects.countries,
         ) as unknown as GeoJSON.FeatureCollection;
 
-        // Normalize IDs to strings
+        // Normalize IDs to unpadded strings (TopoJSON uses zero-padded like "032", code uses "32")
         const feats = collection.features.map((f) => ({
           ...f,
-          id: String(f.id),
+          id: String(Number(f.id)),
         }));
 
         cachedFeatures = feats;
