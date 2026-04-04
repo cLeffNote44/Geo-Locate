@@ -91,8 +91,14 @@ export default function ReviewScreen({
             ✅ {summary.correctCount}/{summary.totalCountries} (
             {Math.round((summary.correctCount / (summary.totalCountries || 1)) * 100)}%)
           </span>
+          {summary.score > 0 && (
+            <span className="text-amber-400 font-bold">⭐ {summary.score.toLocaleString()} pts</span>
+          )}
+          {summary.maxStreak >= 3 && (
+            <span>🔥 {summary.maxStreak} streak</span>
+          )}
           <span>⏱ {totalSecs}s</span>
-          {summary.mode === "classic" && (
+          {(summary.mode === "classic" || summary.mode === "flags" || summary.mode === "capitals") && (
             <span>❤️ {summary.livesLeft}/3</span>
           )}
         </div>

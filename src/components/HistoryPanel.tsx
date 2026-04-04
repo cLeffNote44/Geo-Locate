@@ -1,5 +1,13 @@
 import type { HistoryEntry } from "../types";
 
+const MODE_TAGS: Record<string, string> = {
+  practice: "Practice",
+  timed: "Timed",
+  speedrun: "Speed Run",
+  flags: "Flags",
+  capitals: "Capitals",
+};
+
 interface HistoryPanelProps {
   history: HistoryEntry[];
 }
@@ -25,19 +33,29 @@ export default function HistoryPanel({ history }: HistoryPanelProps) {
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-[15px] text-slate-200">
                   {h.region}
-                  {h.mode === "practice" && (
-                    <span className="ml-2 text-xs text-indigo-400">(Practice)</span>
+                  {MODE_TAGS[h.mode] && (
+                    <span className="ml-2 text-xs text-indigo-400">({MODE_TAGS[h.mode]})</span>
                   )}
                 </span>
-                <span
-                  className={`rounded-md px-2.5 py-0.5 text-xs font-bold text-white ${h.won ? "bg-green-900" : "bg-red-900"}`}
-                >
-                  {h.won ? "🏆 WIN" : "💀 LOSS"}
-                </span>
+                <div className="flex items-center gap-2">
+                  {h.score > 0 && (
+                    <span className="text-xs font-bold text-amber-400">
+                      {h.score.toLocaleString()} pts
+                    </span>
+                  )}
+                  <span
+                    className={`rounded-md px-2.5 py-0.5 text-xs font-bold text-white ${h.won ? "bg-green-900" : "bg-red-900"}`}
+                  >
+                    {h.won ? "🏆 WIN" : "💀 LOSS"}
+                  </span>
+                </div>
               </div>
               <div className="flex gap-4 flex-wrap text-slate-400 text-[13px]">
                 <span>🗺 {h.found}/{h.total} ({h.pct}%)</span>
-                {h.mode === "classic" && <span>❤️ {h.livesLeft}/3 left</span>}
+                {(h.mode === "classic" || h.mode === "flags" || h.mode === "capitals") && (
+                  <span>❤️ {h.livesLeft}/3 left</span>
+                )}
+                {h.maxStreak >= 3 && <span>🔥 {h.maxStreak} streak</span>}
                 <span>⏱ {h.secs}s</span>
                 <span className="text-slate-600">{h.date}</span>
               </div>

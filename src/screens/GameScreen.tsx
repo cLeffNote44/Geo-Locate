@@ -1,20 +1,28 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import type { GameMode, RegionValue, Screen, CountryId } from "../types";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import type { GameMode, RegionValue, Screen, CountryId, GameSummary } from "../types";
+import type { AchievementId } from "../types";
 import { useWorldMap } from "../hooks/useWorldMap";
 import { useGame } from "../hooks/useGame";
 import { useSpacedRep } from "../hooks/useSpacedRep";
 import { useGameHistory } from "../hooks/useGameHistory";
+import { useAchievements } from "../hooks/useAchievements";
+import { useLeaderboard } from "../hooks/useLeaderboard";
+import { useSpeedRunPB } from "../hooks/useSpeedRunPB";
 import { CONTINENTS } from "../data/continents";
 import { getProjection, buildMapFeatures } from "../lib/mapUtils";
 import { buildQueue } from "../lib/queue";
-import { getCountryName } from "../lib/countryLookup";
+import { getCountryName, getCountryInfo } from "../lib/countryLookup";
 import { getRegionLabel } from "../data/regions";
 import { buildSummary } from "../state/selectors";
+import { checkAchievements } from "../lib/achievements";
 import ZoomMap from "../components/ZoomMap";
 import GameHUD from "../components/GameHUD";
 import FlashMessage from "../components/FlashMessage";
 import EndOverlay from "../components/EndOverlay";
 import CountryInfoPanel from "../components/CountryInfoPanel";
+import AchievementToast from "../components/AchievementToast";
+
+const TIMED_DURATION = 120; // seconds
 
 interface GameScreenProps {
   mode: GameMode;
@@ -30,10 +38,16 @@ export default function GameScreen({
   const { features, loading, error } = useWorldMap();
   const { state, derived, dispatch } = useGame();
   const { getAllRecords, batchUpdate } = useSpacedRep();
-  const { addEntry } = useGameHistory();
+  const { history, addEntry } = useGameHistory();
+  const { achievements, unlock } = useAchievements();
+  const { addScore } = useLeaderboard();
+  const { updatePB } = useSpeedRunPB();
   const [initialized, setInitialized] = useState(false);
   const [infoPanelId, setInfoPanelId] = useState<CountryId | null>(null);
   const [savedResult, setSavedResult] = useState(false);
+  const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
+  const [elapsedSecs, setElapsedSecs] = useState(0);
+  const summaryRef = useRef<GameSummary | null>(null);
 
   // Build paths for this region
   const mapData = useMemo(() => {
@@ -42,7 +56,6 @@ export default function GameScreen({
     const filtered = cIds
       ? features.filter((f) => cIds.has(String(f.id)))
       : features;
-
     const geoCol: GeoJSON.FeatureCollection = {
       type: "FeatureCollection",
       features: filtered,
@@ -65,10 +78,31 @@ export default function GameScreen({
       mode,
       region,
       queue,
+      timeLimit: mode === "timed" ? TIMED_DURATION : undefined,
     });
     setInitialized(true);
     setSavedResult(false);
+    setNewAchievements([]);
+    summaryRef.current = null;
   }, [mapData.availableIds, initialized, mode, region, dispatch, getAllRecords]);
+
+  // Timer tick (timed mode)
+  useEffect(() => {
+    if (mode !== "timed" || !initialized || state.finished) return;
+    const interval = setInterval(() => {
+      dispatch({ type: "TICK_TIMER" });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [mode, initialized, state.finished, dispatch]);
+
+  // Stopwatch for speedrun
+  useEffect(() => {
+    if (mode !== "speedrun" || !initialized || state.finished) return;
+    const interval = setInterval(() => {
+      setElapsedSecs(Math.floor((Date.now() - state.startedAt) / 1000));
+    }, 500);
+    return () => clearInterval(interval);
+  }, [mode, initialized, state.finished, state.startedAt]);
 
   // Auto-clear flash
   useEffect(() => {
@@ -77,13 +111,10 @@ export default function GameScreen({
     return () => clearTimeout(t);
   }, [state.flash, dispatch]);
 
-  // Auto-clear wrong highlight (classic mode)
+  // Auto-clear wrong highlight
   useEffect(() => {
-    if (!state.wrongClickId || mode === "practice") return;
-    const t = setTimeout(
-      () => dispatch({ type: "CLEAR_WRONG_HIGHLIGHT" }),
-      2000,
-    );
+    if (!state.wrongClickId || mode === "practice" || mode === "speedrun") return;
+    const t = setTimeout(() => dispatch({ type: "CLEAR_WRONG_HIGHLIGHT" }), 2000);
     return () => clearTimeout(t);
   }, [state.wrongClickId, mode, dispatch]);
 
@@ -92,6 +123,7 @@ export default function GameScreen({
     if (!state.finished || savedResult) return;
     setSavedResult(true);
     const summary = buildSummary(state, region);
+    summaryRef.current = summary;
 
     // Update spaced rep records
     batchUpdate(
@@ -101,8 +133,7 @@ export default function GameScreen({
       })),
     );
 
-    // Add history entry
-    addEntry({
+    const histEntry = {
       date: new Date().toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -119,8 +150,40 @@ export default function GameScreen({
       pct: Math.round(
         (summary.correctCount / (summary.totalCountries || 1)) * 100,
       ),
-    });
-  }, [state.finished, savedResult, state, region, mode, batchUpdate, addEntry]);
+      score: summary.score,
+      maxStreak: summary.maxStreak,
+    };
+    addEntry(histEntry);
+
+    // Leaderboard
+    if (summary.score > 0) {
+      addScore({
+        score: summary.score,
+        date: histEntry.date,
+        mode,
+        region,
+        pct: histEntry.pct,
+      });
+    }
+
+    // Speed run personal best
+    if (mode === "speedrun" && summary.won) {
+      updatePB(region, Math.round(summary.totalTimeMs / 1000));
+    }
+
+    // Check achievements
+    const srRecords = getAllRecords();
+    const newAchs = checkAchievements(
+      summary,
+      [...history, histEntry],
+      srRecords,
+      achievements,
+    );
+    if (newAchs.length > 0) {
+      unlock(newAchs);
+      setNewAchievements(newAchs);
+    }
+  }, [state.finished, savedResult, state, region, mode, batchUpdate, addEntry, addScore, updatePB, getAllRecords, history, achievements, unlock]);
 
   const handleCountryClick = useCallback(
     (id: CountryId) => {
@@ -151,11 +214,16 @@ export default function GameScreen({
     );
   }
 
-  const targetName = derived.currentCountryId
-    ? getCountryName(derived.currentCountryId)
-    : "";
+  // Mode-specific prompt data
+  const currentId = derived.currentCountryId;
+  const targetName = currentId ? getCountryName(currentId) : "";
+  const currentInfo = currentId ? getCountryInfo(currentId) : undefined;
+  const flagEmoji = mode === "flags" && currentInfo ? currentInfo.flag_emoji : undefined;
+  const capitalName = mode === "capitals" && currentInfo ? currentInfo.capital : undefined;
 
   const mapReady = !loading && initialized && mapData.paths.length > 0;
+  const showPracticeControls = mode === "practice" && !state.finished && mapReady;
+  const showSpeedrunControls = mode === "speedrun" && !state.finished && mapReady;
 
   return (
     <div className="flex flex-col h-dvh bg-[#0c1220] overflow-hidden">
@@ -169,10 +237,29 @@ export default function GameScreen({
         won={derived.correctCount >= state.queue.length}
         correctCount={derived.correctCount}
         progress={derived.progress}
+        score={state.score}
+        streak={state.streak}
+        timeRemaining={mode === "timed" ? state.timeRemaining : elapsedSecs}
+        flagEmoji={flagEmoji}
+        capitalName={capitalName}
         onBack={() => navigate({ kind: "regionSelect", mode })}
       />
 
-      {state.flash && <FlashMessage type={state.flash.type} />}
+      {state.flash && (
+        <FlashMessage
+          type={state.flash.type}
+          score={state.flash.score}
+          streak={state.flash.streak}
+        />
+      )}
+
+      {/* Achievement toast */}
+      {newAchievements.length > 0 && (
+        <AchievementToast
+          achievementIds={newAchievements}
+          onDone={() => setNewAchievements([])}
+        />
+      )}
 
       <div className="flex-1 relative overflow-hidden bg-[#111827]">
         {!mapReady ? (
@@ -193,7 +280,6 @@ export default function GameScreen({
           />
         )}
 
-        {/* Country info panel (practice mode or post-game) */}
         {infoPanelId && (
           <CountryInfoPanel
             countryId={infoPanelId}
@@ -203,7 +289,7 @@ export default function GameScreen({
       </div>
 
       {/* Practice mode controls */}
-      {mode === "practice" && !state.finished && mapReady && (
+      {showPracticeControls && (
         <div className="flex gap-2.5 justify-center px-4 py-3 bg-black/40 border-t border-white/[.08] shrink-0">
           {!state.answerRevealed ? (
             <button
@@ -229,8 +315,18 @@ export default function GameScreen({
         </div>
       )}
 
+      {/* Speed run controls (show answer on wrong) */}
+      {showSpeedrunControls && state.wrongClickId && (
+        <div className="flex gap-2.5 justify-center px-4 py-2 bg-black/40 border-t border-white/[.08] shrink-0">
+          <span className="text-xs text-slate-500">
+            Wrong click — try again! Looking for: <span className="text-white font-bold">{targetName}</span>
+          </span>
+        </div>
+      )}
+
       {state.finished && (
         <EndOverlay
+          summary={summaryRef.current ?? undefined}
           onPlayAgain={handlePlayAgain}
           onChangeMap={() => navigate({ kind: "regionSelect", mode })}
           onMainMenu={() => navigate({ kind: "menu" })}

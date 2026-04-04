@@ -1,11 +1,15 @@
-import { useMemo } from "react";
-import type { Screen, CountryId } from "../types";
+import { useMemo, useState } from "react";
+import type { Screen, CountryId, RegionValue } from "../types";
 import type { HistoryEntry, SpacedRepRecord, MasteryLevel } from "../types";
 import { useWorldMap } from "../hooks/useWorldMap";
 import { useSpacedRep } from "../hooks/useSpacedRep";
+import { useAchievements } from "../hooks/useAchievements";
+import { useLeaderboard } from "../hooks/useLeaderboard";
 import { getProjection, buildMapFeatures } from "../lib/mapUtils";
 import { getCountryName } from "../lib/countryLookup";
 import { getMasteryLevel } from "../lib/queue";
+import { getRegionLabel } from "../data/regions";
+import AchievementGrid from "../components/AchievementGrid";
 
 interface StatsScreenProps {
   history: HistoryEntry[];
@@ -28,9 +32,14 @@ const MASTERY_LABELS: Record<MasteryLevel, string> = {
   mastered: "Mastered",
 };
 
+const REGION_TABS: RegionValue[] = ["world", "europe", "asia", "africa", "northAmerica", "southAmerica", "oceania"];
+
 export default function StatsScreen({ history, navigate }: StatsScreenProps) {
   const { features } = useWorldMap();
   const { getAllRecords } = useSpacedRep();
+  const { achievements } = useAchievements();
+  const { getRegionScores } = useLeaderboard();
+  const [lbRegion, setLbRegion] = useState<RegionValue>("world");
 
   const srData = useMemo(() => getAllRecords(), [getAllRecords]);
 
@@ -183,6 +192,66 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
               );
             })}
           </svg>
+        </div>
+
+        {/* Achievements */}
+        <div className="mb-8">
+          <AchievementGrid achievements={achievements} />
+        </div>
+
+        {/* Leaderboard */}
+        <div className="card mb-8">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+            Leaderboard — Top Scores
+          </div>
+          <div className="flex gap-1.5 flex-wrap mb-3">
+            {REGION_TABS.map((r) => (
+              <button
+                key={r}
+                onClick={() => setLbRegion(r)}
+                className={`text-[11px] font-semibold px-2.5 py-1 rounded-md cursor-pointer border-none transition-colors ${
+                  lbRegion === r
+                    ? "bg-blue-500/25 text-sky-400"
+                    : "bg-white/[.05] text-slate-500 hover:bg-white/[.1]"
+                }`}
+              >
+                {getRegionLabel(r)}
+              </button>
+            ))}
+          </div>
+          {(() => {
+            const scores = getRegionScores(lbRegion);
+            if (scores.length === 0) {
+              return (
+                <div className="text-slate-600 text-center py-4 text-sm">
+                  No scores yet for {getRegionLabel(lbRegion)}
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-1.5">
+                {scores.map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[.03]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`text-sm font-black w-6 text-center ${i === 0 ? "text-amber-400" : i === 1 ? "text-slate-300" : i === 2 ? "text-amber-700" : "text-slate-500"}`}>
+                        {i + 1}
+                      </span>
+                      <span className="text-sm font-bold text-amber-400">
+                        {s.score.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <span>{s.pct}%</span>
+                      <span>{s.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Weakest countries */}

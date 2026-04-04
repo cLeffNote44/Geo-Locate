@@ -79,7 +79,12 @@ export default function RegionSelectScreen({
         Choose Your Map
       </h1>
       <p className="text-slate-500 text-[15px] mb-7 text-center">
-        {mode === "practice" ? "Practice mode — no lives, learn at your pace" : "Select a region to start"}
+        {mode === "practice" && "Practice mode — no lives, learn at your pace"}
+        {mode === "classic" && "Select a region to start"}
+        {mode === "timed" && "Race the clock — find as many countries as you can!"}
+        {mode === "speedrun" && "Speed run — find every country as fast as possible!"}
+        {mode === "flags" && "Identify countries by their flag"}
+        {mode === "capitals" && "Find countries by their capital city"}
       </p>
 
       <RegionGrid selected={region} onSelect={handleSelect} />
@@ -115,9 +120,11 @@ export default function RegionSelectScreen({
                 to find
               </div>
               <p className="text-slate-600 text-[13px] mb-5">
-                {mode === "classic"
-                  ? "3 wrong answers ends the game. Scroll to zoom, drag to pan!"
-                  : "No penalties — take your time and learn!"}
+                {(mode === "classic" || mode === "flags" || mode === "capitals") &&
+                  "3 wrong answers ends the game. Scroll to zoom, drag to pan!"}
+                {mode === "practice" && "No penalties — take your time and learn!"}
+                {mode === "timed" && "Wrong answers cost 5 seconds. Scroll to zoom, drag to pan!"}
+                {mode === "speedrun" && "No penalty for wrong clicks — just find them all fast!"}
               </p>
               <button
                 className="btn-primary !text-xl !px-11 !py-4"

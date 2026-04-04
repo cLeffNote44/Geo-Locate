@@ -44,5 +44,7 @@ export function buildSummary(
     livesLeft: state.lives === Infinity ? 0 : state.lives,
     won: cc >= state.queue.length,
     totalTimeMs: Date.now() - state.startedAt,
+    score: state.score,
+    maxStreak: state.maxStreak,
   };
 }

@@ -1,10 +1,22 @@
 interface FlashMessageProps {
   type: "correct" | "wrong";
-  message?: string;
+  score?: number;
+  streak?: number;
 }
 
-export default function FlashMessage({ type, message }: FlashMessageProps) {
+export default function FlashMessage({ type, score, streak }: FlashMessageProps) {
   const isCorrect = type === "correct";
+
+  let text: string;
+  if (isCorrect) {
+    text = score ? `+${score}` : "✓ Correct!";
+    if (streak && streak >= 3) {
+      text += ` 🔥x${streak}`;
+    }
+  } else {
+    text = "✗ Wrong!";
+  }
+
   return (
     <div
       className={`
@@ -14,7 +26,7 @@ export default function FlashMessage({ type, message }: FlashMessageProps) {
       `}
       style={{ animation: "pop-in .2s ease" }}
     >
-      {message ?? (isCorrect ? "✓ Correct!" : "✗ Wrong answer!")}
+      {text}
     </div>
   );
 }

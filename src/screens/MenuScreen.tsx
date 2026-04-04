@@ -1,6 +1,7 @@
-import type { GameMode, Screen } from "../types";
+import type { Screen } from "../types";
 import type { HistoryEntry } from "../types";
 import HistoryPanel from "../components/HistoryPanel";
+import ModeGrid from "../components/ModeGrid";
 
 interface MenuScreenProps {
   history: HistoryEntry[];
@@ -8,10 +9,6 @@ interface MenuScreenProps {
 }
 
 export default function MenuScreen({ history, navigate }: MenuScreenProps) {
-  const startGame = (mode: GameMode) => {
-    navigate({ kind: "regionSelect", mode });
-  };
-
   return (
     <div
       className="min-h-dvh font-sans text-slate-200 flex flex-col items-center justify-center px-4 py-5"
@@ -27,28 +24,13 @@ export default function MenuScreen({ history, navigate }: MenuScreenProps) {
         Test your geography knowledge — find countries on the map!
       </p>
 
-      <div className="flex gap-3 flex-wrap justify-center mb-2">
-        <button
-          className="btn-primary"
-          onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-          onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
-          onClick={() => startGame("classic")}
-        >
-          🎯 Classic Mode
-        </button>
-        <button
-          className="btn-ghost !px-7 !py-3.5 !text-base !font-bold"
-          onClick={() => startGame("practice")}
-        >
-          📚 Practice Mode
-        </button>
-      </div>
+      <ModeGrid navigate={navigate} />
 
       <button
-        className="btn-ghost !mt-3 !text-xs"
+        className="btn-ghost !mt-5 !text-xs"
         onClick={() => navigate({ kind: "stats" })}
       >
-        📊 Statistics
+        📊 Statistics & Achievements
       </button>
 
       <HistoryPanel history={history} />
