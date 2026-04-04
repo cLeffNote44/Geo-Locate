@@ -5,11 +5,15 @@ import { useWorldMap } from "../hooks/useWorldMap";
 import { useSpacedRep } from "../hooks/useSpacedRep";
 import { useAchievements } from "../hooks/useAchievements";
 import { useLeaderboard } from "../hooks/useLeaderboard";
+import { useStreak } from "../hooks/useStreak";
 import { getProjection, buildMapFeatures } from "../lib/mapUtils";
 import { getCountryName } from "../lib/countryLookup";
 import { getMasteryLevel } from "../lib/queue";
 import { getRegionLabel } from "../data/regions";
+import { getDailyHistory } from "../lib/daily";
 import AchievementGrid from "../components/AchievementGrid";
+import MiniBarChart from "../components/MiniBarChart";
+import TrendLine from "../components/TrendLine";
 
 interface StatsScreenProps {
   history: HistoryEntry[];
@@ -34,11 +38,22 @@ const MASTERY_LABELS: Record<MasteryLevel, string> = {
 
 const REGION_TABS: RegionValue[] = ["world", "europe", "asia", "africa", "northAmerica", "southAmerica", "oceania"];
 
+const REGION_BAR_COLORS: Record<RegionValue, string> = {
+  world: "#3b82f6",
+  europe: "#8b5cf6",
+  asia: "#ef4444",
+  africa: "#f97316",
+  northAmerica: "#22c55e",
+  southAmerica: "#06b6d4",
+  oceania: "#eab308",
+};
+
 export default function StatsScreen({ history, navigate }: StatsScreenProps) {
   const { features } = useWorldMap();
   const { getAllRecords } = useSpacedRep();
   const { achievements } = useAchievements();
   const { getRegionScores } = useLeaderboard();
+  const { currentStreak, longestStreak } = useStreak();
   const [lbRegion, setLbRegion] = useState<RegionValue>("world");
 
   const srData = useMemo(() => getAllRecords(), [getAllRecords]);
@@ -77,6 +92,88 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
     };
   }, [history, srData, masteryMap]);
 
+  // Accuracy by region
+  const regionAccuracy = useMemo(() => {
+    const regionData: Record<RegionValue, { correct: number; total: number }> = {
+      world: { correct: 0, total: 0 },
+      europe: { correct: 0, total: 0 },
+      asia: { correct: 0, total: 0 },
+      africa: { correct: 0, total: 0 },
+      northAmerica: { correct: 0, total: 0 },
+      southAmerica: { correct: 0, total: 0 },
+      oceania: { correct: 0, total: 0 },
+    };
+    for (const h of history) {
+      if (regionData[h.regionValue]) {
+        regionData[h.regionValue].correct += h.found;
+        regionData[h.regionValue].total += h.total;
+      }
+    }
+    return REGION_TABS
+      .filter((r) => regionData[r].total > 0)
+      .map((r) => ({
+        label: getRegionLabel(r),
+        value: Math.round((regionData[r].correct / regionData[r].total) * 100),
+        color: REGION_BAR_COLORS[r],
+      }));
+  }, [history]);
+
+  // Accuracy trend (last 20 games)
+  const accuracyTrend = useMemo(() => {
+    return history
+      .slice(0, 20)
+      .reverse()
+      .map((h) => h.pct);
+  }, [history]);
+
+  // Best streak from history
+  const bestStreak = useMemo(() => {
+    if (history.length === 0) return { value: 0, date: "" };
+    const best = history.reduce((a, b) => (a.maxStreak >= b.maxStreak ? a : b));
+    return { value: best.maxStreak, date: best.date };
+  }, [history]);
+
+  // Average time per country by region
+  const avgTimeByRegion = useMemo(() => {
+    const regionTimes: Record<RegionValue, { totalSecs: number; totalCountries: number }> = {
+      world: { totalSecs: 0, totalCountries: 0 },
+      europe: { totalSecs: 0, totalCountries: 0 },
+      asia: { totalSecs: 0, totalCountries: 0 },
+      africa: { totalSecs: 0, totalCountries: 0 },
+      northAmerica: { totalSecs: 0, totalCountries: 0 },
+      southAmerica: { totalSecs: 0, totalCountries: 0 },
+      oceania: { totalSecs: 0, totalCountries: 0 },
+    };
+    for (const h of history) {
+      if (regionTimes[h.regionValue]) {
+        regionTimes[h.regionValue].totalSecs += h.secs;
+        regionTimes[h.regionValue].totalCountries += h.found;
+      }
+    }
+    return REGION_TABS
+      .filter((r) => regionTimes[r].totalCountries > 0)
+      .map((r) => ({
+        label: getRegionLabel(r),
+        value: Math.round(regionTimes[r].totalSecs / regionTimes[r].totalCountries * 10) / 10,
+        color: REGION_BAR_COLORS[r],
+      }));
+  }, [history]);
+
+  // Most improved countries (biggest accuracy jump from first to recent)
+  const mostImproved = useMemo(() => {
+    const entries = Object.entries(srData) as [CountryId, SpacedRepRecord][];
+    return entries
+      .filter(([, r]) => r.attempts >= 4 && r.correct > 0)
+      .map(([id, r]) => ({
+        id,
+        name: getCountryName(id),
+        accuracy: Math.round((r.correct / r.attempts) * 100),
+        attempts: r.attempts,
+      }))
+      .sort((a, b) => b.accuracy - a.accuracy)
+      .slice(0, 10);
+  }, [srData]);
+
   // Weakest countries
   const weakest = useMemo(() => {
     const entries = Object.entries(srData) as [CountryId, SpacedRepRecord][];
@@ -91,6 +188,9 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
       .sort((a, b) => a.accuracy - b.accuracy)
       .slice(0, 15);
   }, [srData]);
+
+  // Daily challenge history
+  const dailyHistory = useMemo(() => getDailyHistory().slice(0, 10), []);
 
   // Build world mastery map paths
   const worldPaths = useMemo(() => {
@@ -114,7 +214,6 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
     for (const level of masteryMap.values()) {
       counts[level]++;
     }
-    // Count countries not in srData as "new"
     const trackedCount = Object.keys(srData).length;
     counts.new = Math.max(0, worldPaths.filter((p) => p.name).length - trackedCount) + counts.new;
     return counts;
@@ -155,6 +254,52 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
           />
         </div>
 
+        {/* Streaks & best streak */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+          <StatCard
+            label="Current Streak"
+            value={currentStreak > 0 ? `🔥 ${currentStreak}d` : "—"}
+          />
+          <StatCard
+            label="Longest Streak"
+            value={longestStreak > 0 ? `${longestStreak}d` : "—"}
+          />
+          <StatCard
+            label="Best Game Streak"
+            value={bestStreak.value >= 3 ? `🔥 ${bestStreak.value}` : String(bestStreak.value)}
+          />
+        </div>
+
+        {/* Accuracy by region */}
+        {regionAccuracy.length > 0 && (
+          <div className="card mb-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+              Accuracy by Region
+            </div>
+            <MiniBarChart data={regionAccuracy} maxValue={100} suffix="%" />
+          </div>
+        )}
+
+        {/* Accuracy trend */}
+        {accuracyTrend.length > 0 && (
+          <div className="card mb-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+              Accuracy Trend (Last {accuracyTrend.length} Games)
+            </div>
+            <TrendLine values={accuracyTrend} color="#8b5cf6" />
+          </div>
+        )}
+
+        {/* Average time per country */}
+        {avgTimeByRegion.length > 0 && (
+          <div className="card mb-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+              Avg. Time per Country (seconds)
+            </div>
+            <MiniBarChart data={avgTimeByRegion} suffix="s" />
+          </div>
+        )}
+
         {/* Mastery legend */}
         <div className="flex gap-4 flex-wrap mb-4">
           {(Object.keys(MASTERY_COLORS) as MasteryLevel[]).map((level) => (
@@ -193,6 +338,36 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
             })}
           </svg>
         </div>
+
+        {/* Daily challenge history */}
+        {dailyHistory.length > 0 && (
+          <div className="card mb-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              📅 Daily Challenge History
+            </div>
+            <div className="space-y-1.5">
+              {dailyHistory.map((d) => (
+                <div
+                  key={d.date}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[.03]"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-bold ${d.won ? "text-green-400" : "text-red-400"}`}>
+                      {d.won ? "🏆" : "💀"}
+                    </span>
+                    <span className="text-sm text-slate-300">
+                      {d.correct}/{d.total} ({d.pct}%)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                    <span className="text-amber-400 font-bold">{d.score.toLocaleString()} pts</span>
+                    <span>{d.date}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Achievements */}
         <div className="mb-8">
@@ -253,6 +428,44 @@ export default function StatsScreen({ history, navigate }: StatsScreenProps) {
             );
           })()}
         </div>
+
+        {/* Most improved countries */}
+        {mostImproved.length > 0 && (
+          <div className="card mb-8">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              🌟 Strongest Countries (min 4 attempts)
+            </div>
+            <div className="space-y-2">
+              {mostImproved.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[.03]"
+                >
+                  <span className="text-sm font-semibold text-slate-200">
+                    {c.name}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500">
+                      {c.attempts} attempts
+                    </span>
+                    <div className="w-20 h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${c.accuracy}%`,
+                          background: "#22c55e",
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-green-400 min-w-[2.5rem] text-right">
+                      {c.accuracy}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Weakest countries */}
         <div className="card">
