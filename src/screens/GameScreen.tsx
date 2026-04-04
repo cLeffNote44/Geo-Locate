@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import type { GameMode, RegionValue, Screen, CountryId, GameSummary } from "../types";
+import type { GameMode, RegionValue, Screen, CountryId, GameSummary, Difficulty } from "../types";
 import type { AchievementId } from "../types";
 import { useWorldMap } from "../hooks/useWorldMap";
 import { useGame } from "../hooks/useGame";
@@ -9,6 +9,7 @@ import { useAchievements } from "../hooks/useAchievements";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import { useSpeedRunPB } from "../hooks/useSpeedRunPB";
 import { useSound } from "../hooks/useSound";
+import { useStreak } from "../hooks/useStreak";
 import { CONTINENTS } from "../data/continents";
 import { getProjection, buildMapFeatures } from "../lib/mapUtils";
 import { buildQueue } from "../lib/queue";
@@ -16,6 +17,9 @@ import { getCountryName, getCountryInfo } from "../lib/countryLookup";
 import { getRegionLabel } from "../data/regions";
 import { buildSummary } from "../state/selectors";
 import { checkAchievements } from "../lib/achievements";
+import { getLivesForDifficulty, getTimedDuration } from "../lib/difficultyPresets";
+import { getNextHintLevel, getHintCost, getRegionHighlight, getNeighborHighlight } from "../lib/hints";
+import { getDailyQueue, hasPlayedToday, saveDailyResult } from "../lib/daily";
 import ZoomMap from "../components/ZoomMap";
 import GameHUD from "../components/GameHUD";
 import FlashMessage from "../components/FlashMessage";
@@ -24,17 +28,17 @@ import EndOverlay from "../components/EndOverlay";
 import CountryInfoPanel from "../components/CountryInfoPanel";
 import AchievementToast from "../components/AchievementToast";
 
-const TIMED_DURATION = 120; // seconds
-
 interface GameScreenProps {
   mode: GameMode;
   region: RegionValue;
+  difficulty: Difficulty;
   navigate: (screen: Screen) => void;
 }
 
 export default function GameScreen({
   mode,
   region,
+  difficulty,
   navigate,
 }: GameScreenProps) {
   const { features, loading, error } = useWorldMap();
@@ -45,6 +49,7 @@ export default function GameScreen({
   const { addScore } = useLeaderboard();
   const { updatePB } = useSpeedRunPB();
   const { muted, toggleMute, playCorrect, playWrong, playStreak, playWin, playLose } = useSound();
+  const { recordPlay } = useStreak();
   const [initialized, setInitialized] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [infoPanelId, setInfoPanelId] = useState<CountryId | null>(null);
@@ -75,20 +80,33 @@ export default function GameScreen({
   // Initialize game when map is ready
   useEffect(() => {
     if (!mapData.availableIds.size || initialized) return;
+
+    // Daily mode: use seeded queue, block if already played
+    if (mode === "daily" && hasPlayedToday()) {
+      navigate({ kind: "menu" });
+      return;
+    }
+
     const srRecords = getAllRecords();
-    const queue = buildQueue(region, mapData.availableIds, srRecords);
+    const queue = mode === "daily"
+      ? getDailyQueue().filter((id) => mapData.availableIds.has(id))
+      : buildQueue(region, mapData.availableIds, srRecords);
+    const lives = getLivesForDifficulty(difficulty, mode);
+    const timeLimit = mode === "timed" ? getTimedDuration(difficulty) : undefined;
     dispatch({
       type: "INIT_GAME",
       mode,
       region,
+      difficulty,
       queue,
-      timeLimit: mode === "timed" ? TIMED_DURATION : undefined,
+      lives: lives === Infinity ? undefined : lives,
+      timeLimit,
     });
     setInitialized(true);
     setSavedResult(false);
     setNewAchievements([]);
     summaryRef.current = null;
-  }, [mapData.availableIds, initialized, mode, region, dispatch, getAllRecords]);
+  }, [mapData.availableIds, initialized, mode, region, difficulty, dispatch, getAllRecords]);
 
   // Timer tick (timed mode)
   useEffect(() => {
@@ -138,6 +156,9 @@ export default function GameScreen({
     const summary = buildSummary(state, region);
     summaryRef.current = summary;
 
+    // Record daily streak
+    recordPlay();
+
     // Update spaced rep records
     batchUpdate(
       state.results.map((r) => ({
@@ -155,6 +176,7 @@ export default function GameScreen({
       region: getRegionLabel(region),
       regionValue: region,
       mode,
+      difficulty,
       found: summary.correctCount,
       total: summary.totalCountries,
       livesLeft: summary.livesLeft,
@@ -165,6 +187,7 @@ export default function GameScreen({
       ),
       score: summary.score,
       maxStreak: summary.maxStreak,
+      hintsUsed: summary.hintsUsed,
     };
     addEntry(histEntry);
 
@@ -175,6 +198,17 @@ export default function GameScreen({
         date: histEntry.date,
         mode,
         region,
+        pct: histEntry.pct,
+      });
+    }
+
+    // Save daily result
+    if (mode === "daily") {
+      saveDailyResult({
+        score: summary.score,
+        correct: summary.correctCount,
+        total: summary.totalCountries,
+        won: summary.won,
         pct: histEntry.pct,
       });
     }
@@ -205,7 +239,7 @@ export default function GameScreen({
       unlock(newAchs);
       setNewAchievements(newAchs);
     }
-  }, [state.finished, savedResult, state, region, mode, batchUpdate, addEntry, addScore, updatePB, getAllRecords, history, achievements, unlock, playWin, playLose]);
+  }, [state.finished, savedResult, state, region, mode, difficulty, batchUpdate, addEntry, addScore, updatePB, getAllRecords, history, achievements, unlock, playWin, playLose, recordPlay]);
 
   const handleCountryClick = useCallback(
     (id: CountryId) => {
@@ -220,6 +254,23 @@ export default function GameScreen({
     },
     [],
   );
+
+  const handleHint = useCallback(() => {
+    const nextLevel = getNextHintLevel(state.hintLevel);
+    if (!nextLevel) return;
+    const cost = getHintCost(nextLevel, difficulty, state.hintLevel);
+    const currentId = derived.currentCountryId;
+    if (!currentId) return;
+
+    let highlightIds: CountryId[] | undefined;
+    if (nextLevel === "region") {
+      highlightIds = getRegionHighlight(currentId);
+    } else if (nextLevel === "neighbors") {
+      highlightIds = getNeighborHighlight(currentId);
+    }
+
+    dispatch({ type: "USE_HINT", level: nextLevel, cost, highlightIds });
+  }, [state.hintLevel, difficulty, derived.currentCountryId, dispatch]);
 
   const handlePlayAgain = () => {
     setInitialized(false);
@@ -255,6 +306,7 @@ export default function GameScreen({
         totalCountries={state.queue.length}
         lives={state.lives}
         mode={mode}
+        difficulty={difficulty}
         finished={state.finished}
         won={derived.correctCount >= state.queue.length}
         correctCount={derived.correctCount}
@@ -265,8 +317,10 @@ export default function GameScreen({
         flagEmoji={flagEmoji}
         capitalName={capitalName}
         muted={muted}
+        hintLevel={state.hintLevel}
         onToggleMute={toggleMute}
         onBack={() => navigate({ kind: "regionSelect", mode })}
+        onHint={handleHint}
       />
 
       {state.flash && (
@@ -303,6 +357,8 @@ export default function GameScreen({
             answerRevealed={state.answerRevealed}
             ended={state.finished}
             practiceMode={mode === "practice"}
+            highlightedIds={state.highlightedIds}
+            hintLevel={state.hintLevel}
             onCountryClick={handleCountryClick}
             onCountrySelect={handleCountrySelect}
           />

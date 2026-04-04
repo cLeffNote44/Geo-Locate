@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import type { GameMode, RegionValue, Screen } from "../types";
+import type { GameMode, RegionValue, Screen, Difficulty } from "../types";
 import { useWorldMap } from "../hooks/useWorldMap";
 import { CONTINENTS } from "../data/continents";
 import { DIFFICULTY } from "../data/difficulty";
 import { getRegionLabel } from "../data/regions";
 import { getProjection, buildMapFeatures } from "../lib/mapUtils";
+import { DIFFICULTY_PRESETS, getDefaultDifficulty } from "../lib/difficultyPresets";
 import RegionGrid from "../components/RegionGrid";
 
 interface RegionSelectScreenProps {
@@ -21,6 +22,7 @@ export default function RegionSelectScreen({
   const [antMsg, setAntMsg] = useState(false);
   const [countryCount, setCountryCount] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>(getDefaultDifficulty);
 
   useEffect(() => {
     if (!region || !features.length) {
@@ -58,8 +60,10 @@ export default function RegionSelectScreen({
 
   const startGame = () => {
     if (!region) return;
-    navigate({ kind: "game", mode, region });
+    navigate({ kind: "game", mode, region, difficulty });
   };
+
+  const preset = DIFFICULTY_PRESETS[difficulty];
 
   return (
     <div
@@ -78,7 +82,7 @@ export default function RegionSelectScreen({
       <h1 className="gradient-text text-[clamp(24px,4vw,40px)] font-black mt-3 mb-1 text-center">
         Choose Your Map
       </h1>
-      <p className="text-slate-500 text-[15px] mb-7 text-center">
+      <p className="text-slate-500 text-[15px] mb-5 text-center">
         {mode === "practice" && "Practice mode — no lives, learn at your pace"}
         {mode === "classic" && "Select a region to start"}
         {mode === "timed" && "Race the clock — find as many countries as you can!"}
@@ -104,11 +108,36 @@ export default function RegionSelectScreen({
       )}
 
       {region && !antMsg && (
-        <div className="mt-8 text-center">
+        <div className="mt-6 text-center w-full max-w-[440px]">
           {loading || !mapReady ? (
             <div className="text-slate-500 text-[15px]">⏳ Loading map data...</div>
           ) : (
             <>
+              {/* Difficulty selector */}
+              {mode !== "practice" && mode !== "speedrun" && (
+                <div className="flex gap-2 justify-center mb-5">
+                  {(Object.entries(DIFFICULTY_PRESETS) as [Difficulty, typeof preset][]).map(
+                    ([key, p]) => (
+                      <button
+                        key={key}
+                        onClick={() => setDifficulty(key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border-none ${
+                          difficulty === key
+                            ? key === "easy"
+                              ? "bg-green-500/25 text-green-400"
+                              : key === "hard"
+                                ? "bg-red-500/25 text-red-400"
+                                : "bg-blue-500/25 text-blue-400"
+                            : "bg-white/[.06] text-slate-500 hover:bg-white/[.1]"
+                        }`}
+                      >
+                        {p.emoji} {p.label}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+
               <div className="text-slate-400 mb-1.5 text-[15px]">
                 <span className="text-sky-400 font-bold">
                   {getRegionLabel(region)}
@@ -121,9 +150,9 @@ export default function RegionSelectScreen({
               </div>
               <p className="text-slate-600 text-[13px] mb-5">
                 {(mode === "classic" || mode === "flags" || mode === "capitals") &&
-                  "3 wrong answers ends the game. Scroll to zoom, drag to pan!"}
+                  `${preset.lives} wrong answers ends the game. Scroll to zoom, drag to pan!`}
                 {mode === "practice" && "No penalties — take your time and learn!"}
-                {mode === "timed" && "Wrong answers cost 5 seconds. Scroll to zoom, drag to pan!"}
+                {mode === "timed" && `${preset.timedDuration}s timer. Wrong answers cost 5 seconds!`}
                 {mode === "speedrun" && "No penalty for wrong clicks — just find them all fast!"}
               </p>
               <button

@@ -4,6 +4,7 @@ import { calculateRoundScore } from "../lib/scoring";
 export const initialGameState: GameState = {
   mode: "classic",
   region: "world",
+  difficulty: "normal",
   queue: [],
   currentIndex: 0,
   lives: 3,
@@ -20,6 +21,9 @@ export const initialGameState: GameState = {
   timeLimit: null,
   timeRemaining: 0,
   timePenalty: 0,
+  hintLevel: "none",
+  hintsUsed: 0,
+  highlightedIds: [],
 };
 
 function getLives(mode: string, lives?: number): number {
@@ -36,6 +40,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...initialGameState,
         mode: action.mode,
         region: action.region,
+        difficulty: action.difficulty,
         queue: action.queue,
         lives: getLives(action.mode, action.lives),
         startedAt: Date.now(),
@@ -56,7 +61,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         // Correct answer
         const newStreak = state.streak + 1;
         const maxStreak = Math.max(state.maxStreak, newStreak);
-        const roundScore = calculateRoundScore(timeMs, newStreak);
+        const roundScore = calculateRoundScore(timeMs, newStreak, state.difficulty);
         const newScore = state.score + roundScore.total;
 
         const newResults = [
@@ -82,6 +87,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           score: newScore,
           streak: newStreak,
           maxStreak,
+          // Reset hints for next round
+          hintLevel: "none",
+          highlightedIds: [],
         };
       }
 
@@ -89,7 +97,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const wrongResult = { countryId: targetId, correct: false, timeMs, score: 0 };
 
       if (state.mode === "practice") {
-        // Practice: stay on same country, no penalty
         return {
           ...state,
           results: [...state.results, wrongResult],
@@ -100,7 +107,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (state.mode === "speedrun") {
-        // Speed run: flash red but don't advance, no penalty
         return {
           ...state,
           results: [...state.results, wrongResult],
@@ -111,7 +117,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (state.mode === "timed") {
-        // Timed: time penalty, advance to next
         const newIndex = state.currentIndex + 1;
         const finished = newIndex >= state.queue.length;
         return {
@@ -126,10 +131,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           streak: 0,
           timePenalty: state.timePenalty + 5,
           timeRemaining: state.timeRemaining - 5,
+          hintLevel: "none",
+          highlightedIds: [],
         };
       }
 
-      // Classic / flags / capitals: lose a life, advance
+      // Classic / flags / capitals / daily: lose a life, advance
       const newLives = state.lives - 1;
       const finished = newLives <= 0;
       return {
@@ -143,6 +150,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         currentIndex: finished ? state.currentIndex : state.currentIndex + 1,
         roundStartedAt: Date.now(),
         streak: 0,
+        hintLevel: "none",
+        highlightedIds: [],
       };
     }
 
@@ -159,6 +168,20 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         answerRevealed: false,
         finished,
         roundStartedAt: Date.now(),
+        hintLevel: "none",
+        highlightedIds: [],
+      };
+    }
+
+    case "USE_HINT": {
+      if (state.finished) return state;
+      return {
+        ...state,
+        hintLevel: action.level,
+        hintsUsed: state.hintsUsed + 1,
+        score: Math.max(0, state.score - action.cost),
+        highlightedIds: action.highlightIds ?? state.highlightedIds,
+        answerRevealed: action.level === "reveal" ? true : state.answerRevealed,
       };
     }
 

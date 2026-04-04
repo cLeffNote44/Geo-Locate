@@ -6,6 +6,7 @@ const MODE_TAGS: Record<string, string> = {
   speedrun: "Speed Run",
   flags: "Flags",
   capitals: "Capitals",
+  daily: "Daily",
 };
 
 interface HistoryPanelProps {
@@ -52,8 +53,13 @@ export default function HistoryPanel({ history }: HistoryPanelProps) {
               </div>
               <div className="flex gap-4 flex-wrap text-slate-400 text-[13px]">
                 <span>🗺 {h.found}/{h.total} ({h.pct}%)</span>
-                {(h.mode === "classic" || h.mode === "flags" || h.mode === "capitals") && (
-                  <span>❤️ {h.livesLeft}/3 left</span>
+                {(h.mode === "classic" || h.mode === "flags" || h.mode === "capitals" || h.mode === "daily") && (
+                  <span>❤️ {h.livesLeft}/{h.difficulty === "easy" ? 5 : h.difficulty === "hard" ? 1 : 3} left</span>
+                )}
+                {h.difficulty && h.difficulty !== "normal" && (
+                  <span className={h.difficulty === "hard" ? "text-red-400" : "text-green-400"}>
+                    {h.difficulty === "hard" ? "💀" : "🟢"} {h.difficulty}
+                  </span>
                 )}
                 {h.maxStreak >= 3 && <span>🔥 {h.maxStreak} streak</span>}
                 <span>⏱ {h.secs}s</span>

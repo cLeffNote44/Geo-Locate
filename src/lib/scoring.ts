@@ -1,4 +1,4 @@
-import type { RegionValue, RoundResult } from "../types";
+import type { RegionValue, RoundResult, Difficulty } from "../types";
 
 const REGION_MULTIPLIER: Record<RegionValue, number> = {
   world: 2.0,
@@ -8,6 +8,18 @@ const REGION_MULTIPLIER: Record<RegionValue, number> = {
   northAmerica: 1.0,
   southAmerica: 1.0,
   oceania: 1.0,
+};
+
+const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
+  easy: 0.75,
+  normal: 1.0,
+  hard: 1.5,
+};
+
+const TIME_BONUS_DECAY: Record<Difficulty, number> = {
+  easy: 750,
+  normal: 500,
+  hard: 250,
 };
 
 function getStreakMultiplier(streak: number): number {
@@ -20,11 +32,14 @@ function getStreakMultiplier(streak: number): number {
 export function calculateRoundScore(
   timeMs: number,
   streak: number,
+  difficulty: Difficulty = "normal",
 ): { base: number; timeBonus: number; streakMultiplier: number; total: number } {
   const base = 100;
-  const timeBonus = Math.max(0, 200 - Math.floor(timeMs / 500));
+  const decay = TIME_BONUS_DECAY[difficulty];
+  const timeBonus = Math.max(0, 200 - Math.floor(timeMs / decay));
   const streakMultiplier = getStreakMultiplier(streak);
-  const total = Math.round((base + timeBonus) * streakMultiplier);
+  const diffMultiplier = DIFFICULTY_MULTIPLIER[difficulty];
+  const total = Math.round((base + timeBonus) * streakMultiplier * diffMultiplier);
   return { base, timeBonus, streakMultiplier, total };
 }
 

@@ -7,12 +7,20 @@ import {
   playWinSound,
   playLoseSound,
   playClickSound,
+  playHintSound,
+  setMasterVolume,
 } from "../lib/sounds";
 
 const MUTE_KEY = "geo-muted";
+const VOLUME_KEY = "geo-volume";
 
 export function useSound() {
   const [muted, setMuted] = useState(() => load<boolean>(MUTE_KEY, false));
+  const [volume, setVolume] = useState(() => {
+    const v = load<number>(VOLUME_KEY, 80);
+    setMasterVolume(v / 100);
+    return v;
+  });
 
   const toggleMute = useCallback(() => {
     setMuted((prev) => {
@@ -20,6 +28,12 @@ export function useSound() {
       save(MUTE_KEY, next);
       return next;
     });
+  }, []);
+
+  const updateVolume = useCallback((v: number) => {
+    setVolume(v);
+    save(VOLUME_KEY, v);
+    setMasterVolume(v / 100);
   }, []);
 
   const playCorrect = useCallback(() => {
@@ -49,5 +63,9 @@ export function useSound() {
     if (!muted) playClickSound();
   }, [muted]);
 
-  return { muted, toggleMute, playCorrect, playWrong, playStreak, playWin, playLose, playClick };
+  const playHint = useCallback(() => {
+    if (!muted) playHintSound();
+  }, [muted]);
+
+  return { muted, volume, toggleMute, updateVolume, playCorrect, playWrong, playStreak, playWin, playLose, playClick, playHint };
 }

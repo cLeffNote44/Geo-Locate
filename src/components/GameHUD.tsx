@@ -1,5 +1,6 @@
-import type { GameMode } from "../types";
+import type { GameMode, Difficulty, HintLevel } from "../types";
 import TimerDisplay from "./TimerDisplay";
+import { canUseHints, getNextHintLevel, HINT_OPTIONS } from "../lib/hints";
 
 interface GameHUDProps {
   targetName: string;
@@ -7,6 +8,7 @@ interface GameHUDProps {
   totalCountries: number;
   lives: number;
   mode: GameMode;
+  difficulty: Difficulty;
   finished: boolean;
   won: boolean;
   correctCount: number;
@@ -17,8 +19,10 @@ interface GameHUDProps {
   flagEmoji?: string;
   capitalName?: string;
   muted: boolean;
+  hintLevel: HintLevel;
   onToggleMute: () => void;
   onBack: () => void;
+  onHint: () => void;
 }
 
 const MODE_LABELS: Partial<Record<GameMode, string>> = {
@@ -27,9 +31,10 @@ const MODE_LABELS: Partial<Record<GameMode, string>> = {
   speedrun: "Speed Run",
   flags: "Flags",
   capitals: "Capitals",
+  daily: "Daily",
 };
 
-const LIVES_MODES = new Set<GameMode>(["classic", "flags", "capitals"]);
+const LIVES_MODES = new Set<GameMode>(["classic", "flags", "capitals", "daily"]);
 
 export default function GameHUD({
   targetName,
@@ -37,6 +42,7 @@ export default function GameHUD({
   totalCountries,
   lives,
   mode,
+  difficulty,
   finished,
   won,
   correctCount,
@@ -47,12 +53,17 @@ export default function GameHUD({
   flagEmoji,
   capitalName,
   muted,
+  hintLevel,
   onToggleMute,
   onBack,
+  onHint,
 }: GameHUDProps) {
   const showLives = LIVES_MODES.has(mode);
   const showTimer = mode === "timed" || mode === "speedrun";
   const modeLabel = MODE_LABELS[mode];
+  const hintsAvailable = canUseHints(mode, difficulty);
+  const nextHint = getNextHintLevel(hintLevel);
+  const nextHintOption = nextHint ? HINT_OPTIONS.find((h) => h.level === nextHint) : null;
 
   let promptLabel = "Find this country";
   let promptValue = targetName;
@@ -64,10 +75,12 @@ export default function GameHUD({
     promptValue = capitalName;
   }
 
+  const maxLives = difficulty === "easy" ? 5 : difficulty === "hard" ? 1 : 3;
+
   return (
     <>
       <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-2.5 bg-black/60 border-b border-white/[.07] min-h-[52px] sm:min-h-[58px] shrink-0 gap-1">
-        {/* Left: back + mute */}
+        {/* Left: back + mute + hint */}
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={onBack} className="btn-ghost !py-1.5 !px-2.5 sm:!px-3.5 !text-xs !m-0">
             ⬅
@@ -80,6 +93,18 @@ export default function GameHUD({
           >
             {muted ? "🔇" : "🔊"}
           </button>
+          {hintsAvailable && !finished && nextHint && (
+            <button
+              onClick={onHint}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] sm:text-xs font-bold cursor-pointer border-none transition-colors bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30"
+              title={nextHintOption ? `${nextHintOption.label} (-${nextHintOption.cost} pts)` : "Hint"}
+            >
+              💡
+              <span className="hidden sm:inline">
+                {nextHintOption ? `-${nextHintOption.cost}` : "Hint"}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Center: prompt */}
@@ -133,7 +158,7 @@ export default function GameHUD({
           )}
 
           {showLives &&
-            [0, 1, 2].map((i) => (
+            Array.from({ length: maxLives }, (_, i) => (
               <span
                 key={i}
                 className="text-lg sm:text-[22px] transition-opacity duration-300"

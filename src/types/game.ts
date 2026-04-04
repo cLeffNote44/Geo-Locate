@@ -1,5 +1,5 @@
 export type CountryId = string;
-export type GameMode = "classic" | "practice" | "timed" | "flags" | "capitals" | "speedrun";
+export type GameMode = "classic" | "practice" | "timed" | "flags" | "capitals" | "speedrun" | "daily";
 export type RegionValue =
   | "world"
   | "northAmerica"
@@ -8,6 +8,10 @@ export type RegionValue =
   | "africa"
   | "asia"
   | "oceania";
+
+export type Difficulty = "easy" | "normal" | "hard";
+
+export type HintLevel = "none" | "region" | "neighbors" | "reveal";
 
 export interface RoundResult {
   countryId: CountryId;
@@ -19,6 +23,7 @@ export interface RoundResult {
 export interface GameState {
   mode: GameMode;
   region: RegionValue;
+  difficulty: Difficulty;
   queue: CountryId[];
   currentIndex: number;
   lives: number;
@@ -37,6 +42,10 @@ export interface GameState {
   timeLimit: number | null;
   timeRemaining: number;
   timePenalty: number;
+  // Hints
+  hintLevel: HintLevel;
+  hintsUsed: number;
+  highlightedIds: CountryId[];
 }
 
 export type GameAction =
@@ -44,6 +53,7 @@ export type GameAction =
       type: "INIT_GAME";
       mode: GameMode;
       region: RegionValue;
+      difficulty: Difficulty;
       queue: CountryId[];
       lives?: number;
       timeLimit?: number;
@@ -55,18 +65,22 @@ export type GameAction =
   | { type: "CLEAR_WRONG_HIGHLIGHT" }
   | { type: "TICK_TIMER" }
   | { type: "TIME_EXPIRED" }
+  | { type: "USE_HINT"; level: HintLevel; cost: number; highlightIds?: CountryId[] }
   | { type: "QUIT" };
 
 export type Screen =
   | { kind: "menu" }
   | { kind: "regionSelect"; mode: GameMode }
-  | { kind: "game"; mode: GameMode; region: RegionValue }
+  | { kind: "game"; mode: GameMode; region: RegionValue; difficulty: Difficulty }
   | { kind: "review"; summary: GameSummary }
-  | { kind: "stats" };
+  | { kind: "stats" }
+  | { kind: "settings" }
+  | { kind: "daily" };
 
 export interface GameSummary {
   mode: GameMode;
   region: RegionValue;
+  difficulty: Difficulty;
   results: RoundResult[];
   totalCountries: number;
   correctCount: number;
@@ -75,6 +89,7 @@ export interface GameSummary {
   totalTimeMs: number;
   score: number;
   maxStreak: number;
+  hintsUsed: number;
 }
 
 export interface MapFeature {

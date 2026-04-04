@@ -150,7 +150,7 @@ export default function ReviewScreen({
         <button
           className="btn-primary !text-sm !px-5 !py-2.5"
           onClick={() =>
-            navigate({ kind: "game", mode: summary.mode, region: summary.region })
+            navigate({ kind: "game", mode: summary.mode, region: summary.region, difficulty: summary.difficulty })
           }
         >
           🔄 Play Again

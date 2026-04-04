@@ -1,8 +1,17 @@
 let ctx: AudioContext | null = null;
+let masterVolume = 0.8;
 
 function getCtx(): AudioContext {
   if (!ctx) ctx = new AudioContext();
   return ctx;
+}
+
+export function setMasterVolume(v: number) {
+  masterVolume = Math.max(0, Math.min(1, v));
+}
+
+export function getMasterVolume(): number {
+  return masterVolume;
 }
 
 function playTone(freq: number, duration: number, type: OscillatorType = "sine", gain = 0.15) {
@@ -12,7 +21,7 @@ function playTone(freq: number, duration: number, type: OscillatorType = "sine",
     const g = c.createGain();
     osc.type = type;
     osc.frequency.value = freq;
-    g.gain.value = gain;
+    g.gain.value = gain * masterVolume;
     g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
     osc.connect(g);
     g.connect(c.destination);
@@ -58,4 +67,9 @@ export function playLoseSound() {
 
 export function playClickSound() {
   playTone(800, 0.03, "sine", 0.05);
+}
+
+export function playHintSound() {
+  playTone(440, 0.1, "sine", 0.08);
+  setTimeout(() => playTone(554, 0.15, "sine", 0.08), 80);
 }

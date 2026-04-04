@@ -38,6 +38,7 @@ export function buildSummary(
   return {
     mode: state.mode,
     region,
+    difficulty: state.difficulty,
     results: state.results,
     totalCountries: state.queue.length,
     correctCount: cc,
@@ -46,5 +47,6 @@ export function buildSummary(
     totalTimeMs: Date.now() - state.startedAt,
     score: state.score,
     maxStreak: state.maxStreak,
+    hintsUsed: state.hintsUsed,
   };
 }

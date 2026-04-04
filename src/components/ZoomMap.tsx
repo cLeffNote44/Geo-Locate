@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, memo } from "react";
 import * as d3 from "d3";
-import type { CountryId, MapFeature } from "../types";
+import type { CountryId, MapFeature, HintLevel } from "../types";
 
 interface ZoomMapProps {
   paths: MapFeature[];
@@ -10,6 +10,8 @@ interface ZoomMapProps {
   answerRevealed: boolean;
   ended: boolean;
   practiceMode: boolean;
+  highlightedIds?: CountryId[];
+  hintLevel?: HintLevel;
   onCountryClick: (id: CountryId) => void;
   onCountrySelect?: (id: CountryId) => void;
 }
@@ -55,9 +57,12 @@ export default function ZoomMap({
   answerRevealed,
   ended,
   practiceMode,
+  highlightedIds = [],
+  hintLevel = "none",
   onCountryClick,
   onCountrySelect,
 }: ZoomMapProps) {
+  const highlightSet = new Set(highlightedIds);
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown>>(null);
@@ -71,9 +76,13 @@ export default function ZoomMap({
       if (correctIds.has(id)) return "#86EFAC";
       if (wrongIds.has(id) && ended) return "#FCA5A5";
       if (id === revealId && !answerRevealed) return "#FCA5A5";
+      // Hint highlighting
+      if (hintLevel !== "none" && highlightSet.has(id)) {
+        return hintLevel === "region" ? "#93C5FD" : "#C4B5FD"; // blue for region, purple for neighbors
+      }
       return "#F5F0E8";
     },
-    [correctIds, wrongIds, revealId, answerRevealed, ended],
+    [correctIds, wrongIds, revealId, answerRevealed, ended, hintLevel, highlightSet],
   );
 
   useEffect(() => {

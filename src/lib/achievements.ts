@@ -26,6 +26,17 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "practice_50", emoji: "📚", name: "Studious", description: "Complete 50 countries in practice mode" },
   { id: "mastered_20", emoji: "🧠", name: "Knowledge Base", description: "Master 20 countries (90%+ accuracy)" },
   { id: "dedicated", emoji: "🎮", name: "Dedicated Player", description: "Play 25 games total" },
+  // v2.0 achievements
+  { id: "streak_day_3", emoji: "🔥", name: "Three-Peat", description: "Play 3 days in a row" },
+  { id: "streak_day_7", emoji: "🗓️", name: "Week Warrior", description: "Play 7 days in a row" },
+  { id: "streak_day_30", emoji: "👑", name: "Monthly Master", description: "Play 30 days in a row" },
+  { id: "daily_first", emoji: "📅", name: "Daily Devotee", description: "Complete your first daily challenge" },
+  { id: "daily_perfect", emoji: "💯", name: "Daily Perfection", description: "Perfect score on a daily challenge" },
+  { id: "hard_win", emoji: "💀", name: "Hardcore", description: "Win any game on Hard difficulty" },
+  { id: "no_hints", emoji: "🧭", name: "Navigator", description: "Win 10 games without using hints" },
+  { id: "speed_30", emoji: "⚡", name: "Lightning Round", description: "Complete any region in under 30 seconds" },
+  { id: "score_10000", emoji: "🏅", name: "Legend", description: "Score 10,000+ in a single game" },
+  { id: "americas_master", emoji: "🌎", name: "Americas Master", description: "Win both North & South America" },
 ];
 
 const ACHIEVEMENT_MAP = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
@@ -39,6 +50,7 @@ export function checkAchievements(
   history: HistoryEntry[],
   srRecords: Record<string, SpacedRepRecord>,
   currentAchievements: Record<AchievementId, AchievementRecord>,
+  dayStreak?: number,
 ): AchievementId[] {
   const newlyUnlocked: AchievementId[] = [];
 
@@ -48,9 +60,9 @@ export function checkAchievements(
     }
   }
 
-  const { won, mode, region, score, maxStreak, totalTimeMs, correctCount, results } = summary;
+  const { won, mode, region, score, maxStreak, totalTimeMs, correctCount, results, difficulty, hintsUsed } = summary;
   const totalSecs = Math.round(totalTimeMs / 1000);
-  const allHistory = history; // includes current game already
+  const allHistory = history;
 
   // Win-based
   check("first_win", won);
@@ -62,6 +74,7 @@ export function checkAchievements(
 
   // Speed
   check("speed_demon", won && totalSecs < 60);
+  check("speed_30", won && totalSecs < 30);
 
   // Streaks
   check("streak_5", maxStreak >= 5);
@@ -70,6 +83,7 @@ export function checkAchievements(
   // Score
   check("score_1000", score >= 1000);
   check("score_5000", score >= 5000);
+  check("score_10000", score >= 10000);
 
   // All regions
   const wonRegions = new Set<RegionValue>();
@@ -79,6 +93,9 @@ export function checkAchievements(
   if (won) wonRegions.add(region);
   const allRegions: RegionValue[] = ["world", "northAmerica", "southAmerica", "europe", "africa", "asia", "oceania"];
   check("all_regions", allRegions.every((r) => wonRegions.has(r)));
+
+  // Americas master
+  check("americas_master", wonRegions.has("northAmerica") && wonRegions.has("southAmerica"));
 
   // Practice countries
   const practiceCorrect = allHistory
@@ -96,6 +113,25 @@ export function checkAchievements(
 
   // Dedicated
   check("dedicated", allHistory.length >= 25);
+
+  // v2.0 — Difficulty
+  check("hard_win", won && difficulty === "hard");
+
+  // v2.0 — No hints (10 games without hints)
+  const noHintWins = allHistory.filter((h) => h.won && (h.hintsUsed ?? 0) === 0).length;
+  const currentNoHint = won && hintsUsed === 0 ? 1 : 0;
+  check("no_hints", noHintWins + currentNoHint >= 10);
+
+  // v2.0 — Daily
+  check("daily_first", mode === "daily");
+  check("daily_perfect", mode === "daily" && won && results.every((r) => r.correct));
+
+  // v2.0 — Day streaks (checked from external streak data)
+  if (dayStreak !== undefined) {
+    check("streak_day_3", dayStreak >= 3);
+    check("streak_day_7", dayStreak >= 7);
+    check("streak_day_30", dayStreak >= 30);
+  }
 
   return newlyUnlocked;
 }

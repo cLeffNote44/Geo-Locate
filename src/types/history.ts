@@ -1,10 +1,11 @@
-import type { CountryId, GameMode, RegionValue } from "./game";
+import type { CountryId, GameMode, RegionValue, Difficulty } from "./game";
 
 export interface HistoryEntry {
   date: string;
   region: string;
   regionValue: RegionValue;
   mode: GameMode;
+  difficulty: Difficulty;
   found: number;
   total: number;
   livesLeft: number;
@@ -13,6 +14,7 @@ export interface HistoryEntry {
   pct: number;
   score: number;
   maxStreak: number;
+  hintsUsed: number;
 }
 
 export interface SpacedRepRecord {
@@ -56,7 +58,17 @@ export type AchievementId =
   | "score_5000"
   | "practice_50"
   | "mastered_20"
-  | "dedicated";
+  | "dedicated"
+  | "streak_day_3"
+  | "streak_day_7"
+  | "streak_day_30"
+  | "daily_first"
+  | "daily_perfect"
+  | "hard_win"
+  | "no_hints"
+  | "speed_30"
+  | "score_10000"
+  | "americas_master";
 
 export interface AchievementRecord {
   unlocked: boolean;
