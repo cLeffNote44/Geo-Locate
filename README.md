@@ -1,73 +1,69 @@
-# React + TypeScript + Vite
+# GeoChallenge
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive geography quiz game built with React, TypeScript, and D3. Test your knowledge of world geography across 6 game modes with scoring, achievements, and spaced repetition learning.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**6 Game Modes**
+- **Classic** — 3 lives, find each country on the map
+- **Practice** — No penalty, learn at your pace with country info panels
+- **Timed** — 120-second countdown, wrong answers cost 5 seconds
+- **Speed Run** — Find all countries as fast as possible, personal best tracking
+- **Flags** — Identify countries by their flag emoji
+- **Capitals** — Find countries by their capital city name
 
-## React Compiler
+**7 World Regions** — World, North America, South America, Europe, Africa, Asia, Oceania
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Scoring System** — Base points + time bonus + streak multiplier (up to x3 at 10-streak)
 
-## Expanding the ESLint configuration
+**15 Achievements** — First Victory, Flawless, World Conqueror, Speed Demon, and more
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Per-Region Leaderboard** — Top 10 scores tracked locally
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+**Spaced Repetition** — Countries you struggle with appear more frequently
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**Statistics Dashboard** — World mastery heat map, accuracy tracking, weakest countries
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**Educational** — Country info panels with capital, population, area, languages, coordinates
+
+**Sound Effects** — Programmatic Web Audio tones with mute toggle
+
+**Mobile Responsive** — Touch-optimized with pinch-to-zoom support
+
+## Tech Stack
+
+- **React 19** + **TypeScript**
+- **Vite** (build tool)
+- **Tailwind CSS v4**
+- **D3** (map projections, zoom/pan)
+- **TopoJSON** (world atlas data)
+- **Web Audio API** (sound effects)
+- **localStorage** (persistence)
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
+npm run preview
 ```
+
+## Embedding
+
+Add `?embed=true` to the URL to use in an iframe:
+
+```html
+<iframe src="https://your-domain.com/?embed=true" width="100%" height="600" frameborder="0"></iframe>
+```
+
+## License
+
+MIT

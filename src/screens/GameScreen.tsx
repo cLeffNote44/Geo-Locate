@@ -8,6 +8,7 @@ import { useGameHistory } from "../hooks/useGameHistory";
 import { useAchievements } from "../hooks/useAchievements";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import { useSpeedRunPB } from "../hooks/useSpeedRunPB";
+import { useSound } from "../hooks/useSound";
 import { CONTINENTS } from "../data/continents";
 import { getProjection, buildMapFeatures } from "../lib/mapUtils";
 import { buildQueue } from "../lib/queue";
@@ -18,6 +19,7 @@ import { checkAchievements } from "../lib/achievements";
 import ZoomMap from "../components/ZoomMap";
 import GameHUD from "../components/GameHUD";
 import FlashMessage from "../components/FlashMessage";
+import Confetti from "../components/Confetti";
 import EndOverlay from "../components/EndOverlay";
 import CountryInfoPanel from "../components/CountryInfoPanel";
 import AchievementToast from "../components/AchievementToast";
@@ -42,7 +44,9 @@ export default function GameScreen({
   const { achievements, unlock } = useAchievements();
   const { addScore } = useLeaderboard();
   const { updatePB } = useSpeedRunPB();
+  const { muted, toggleMute, playCorrect, playWrong, playStreak, playWin, playLose } = useSound();
   const [initialized, setInitialized] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   const [infoPanelId, setInfoPanelId] = useState<CountryId | null>(null);
   const [savedResult, setSavedResult] = useState(false);
   const [newAchievements, setNewAchievements] = useState<AchievementId[]>([]);
@@ -104,12 +108,21 @@ export default function GameScreen({
     return () => clearInterval(interval);
   }, [mode, initialized, state.finished, state.startedAt]);
 
-  // Auto-clear flash
+  // Sound effects on flash
   useEffect(() => {
     if (!state.flash) return;
+    if (state.flash.type === "correct") {
+      if (state.flash.streak && state.flash.streak >= 3) {
+        playStreak(state.flash.streak);
+      } else {
+        playCorrect();
+      }
+    } else {
+      playWrong();
+    }
     const t = setTimeout(() => dispatch({ type: "CLEAR_FLASH" }), 1800);
     return () => clearTimeout(t);
-  }, [state.flash, dispatch]);
+  }, [state.flash, dispatch, playCorrect, playWrong, playStreak]);
 
   // Auto-clear wrong highlight
   useEffect(() => {
@@ -171,6 +184,15 @@ export default function GameScreen({
       updatePB(region, Math.round(summary.totalTimeMs / 1000));
     }
 
+    // Sound + confetti
+    if (summary.won) {
+      playWin();
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
+    } else {
+      playLose();
+    }
+
     // Check achievements
     const srRecords = getAllRecords();
     const newAchs = checkAchievements(
@@ -183,7 +205,7 @@ export default function GameScreen({
       unlock(newAchs);
       setNewAchievements(newAchs);
     }
-  }, [state.finished, savedResult, state, region, mode, batchUpdate, addEntry, addScore, updatePB, getAllRecords, history, achievements, unlock]);
+  }, [state.finished, savedResult, state, region, mode, batchUpdate, addEntry, addScore, updatePB, getAllRecords, history, achievements, unlock, playWin, playLose]);
 
   const handleCountryClick = useCallback(
     (id: CountryId) => {
@@ -242,6 +264,8 @@ export default function GameScreen({
         timeRemaining={mode === "timed" ? state.timeRemaining : elapsedSecs}
         flagEmoji={flagEmoji}
         capitalName={capitalName}
+        muted={muted}
+        onToggleMute={toggleMute}
         onBack={() => navigate({ kind: "regionSelect", mode })}
       />
 
@@ -253,6 +277,9 @@ export default function GameScreen({
         />
       )}
 
+      {/* Confetti on win */}
+      {showConfetti && <Confetti />}
+
       {/* Achievement toast */}
       {newAchievements.length > 0 && (
         <AchievementToast
@@ -263,8 +290,9 @@ export default function GameScreen({
 
       <div className="flex-1 relative overflow-hidden bg-[#111827]">
         {!mapReady ? (
-          <div className="flex items-center justify-center h-full text-slate-600">
-            Loading map...
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <div className="spinner" />
+            <span className="text-slate-600 text-sm">Loading map...</span>
           </div>
         ) : (
           <ZoomMap

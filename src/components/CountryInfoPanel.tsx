@@ -27,7 +27,7 @@ export default function CountryInfoPanel({
 
   return (
     <div
-      className="absolute top-0 right-0 h-full w-80 bg-gray-900/95 border-l border-white/10 backdrop-blur-xl z-40 overflow-y-auto"
+      className="absolute top-0 right-0 h-full w-full sm:w-80 bg-gray-900/95 border-l border-white/10 backdrop-blur-xl z-40 overflow-y-auto"
       style={{ animation: "slide-in-right .3s ease" }}
     >
       <div className="p-5">

@@ -14,6 +14,8 @@ interface ZoomMapProps {
   onCountrySelect?: (id: CountryId) => void;
 }
 
+const isTouch = typeof window !== "undefined" && "ontouchstart" in window;
+
 const CountryPath = memo(function CountryPath({
   feature,
   fill,
@@ -115,9 +117,13 @@ export default function ZoomMap({
     }
   };
 
-  const showTooltip = ended || practiceMode;
+  const showTooltip = !isTouch && (ended || practiceMode);
   const hoveredName =
     hovered && paths.find((p) => p.id === hovered)?.name;
+
+  const tooltipMaxLeft = svgRef.current?.clientWidth
+    ? svgRef.current.clientWidth - 120
+    : 680;
 
   return (
     <div className="relative w-full h-full">
@@ -125,7 +131,7 @@ export default function ZoomMap({
         ref={svgRef}
         viewBox="0 0 800 490"
         className="w-full h-full block select-none"
-        style={{ cursor: "grab" }}
+        style={{ cursor: "grab", touchAction: "none" }}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHovered(null)}
       >
@@ -153,7 +159,7 @@ export default function ZoomMap({
       {/* Zoom controls */}
       <div className="absolute top-2.5 right-2.5 flex flex-col items-center bg-black/70 border border-white/10 rounded-xl overflow-hidden backdrop-blur-md">
         <button
-          className="w-9 h-8 bg-transparent border-none text-slate-300 cursor-pointer text-lg font-bold flex items-center justify-center hover:bg-white/10"
+          className="min-w-[44px] min-h-[44px] bg-transparent border-none text-slate-300 cursor-pointer text-lg font-bold flex items-center justify-center hover:bg-white/10 active:bg-white/20"
           onClick={() =>
             svgRef.current &&
             zoomRef.current &&
@@ -170,7 +176,7 @@ export default function ZoomMap({
           {Math.round(zoomLevel * 100)}%
         </div>
         <button
-          className="w-9 h-8 bg-transparent border-none text-slate-300 cursor-pointer text-lg font-bold flex items-center justify-center hover:bg-white/10"
+          className="min-w-[44px] min-h-[44px] bg-transparent border-none text-slate-300 cursor-pointer text-lg font-bold flex items-center justify-center hover:bg-white/10 active:bg-white/20"
           onClick={() =>
             svgRef.current &&
             zoomRef.current &&
@@ -185,24 +191,24 @@ export default function ZoomMap({
         </button>
         <div className="w-4/5 h-px bg-white/10 my-0.5" />
         <button
-          className="w-9 h-8 bg-transparent border-none text-slate-300 cursor-pointer text-lg font-bold flex items-center justify-center hover:bg-white/10"
+          className="min-w-[44px] min-h-[44px] bg-transparent border-none text-slate-300 cursor-pointer text-lg font-bold flex items-center justify-center hover:bg-white/10 active:bg-white/20"
           onClick={resetZoom}
         >
           ⌂
         </button>
       </div>
 
-      {/* Hint badge */}
+      {/* Hint badge — adapts to touch/mouse */}
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-slate-600 px-3.5 py-1 rounded-full text-[11px] font-semibold pointer-events-none whitespace-nowrap tracking-wide">
-        🖱 Scroll to zoom · Drag to pan
+        {isTouch ? "👆 Pinch to zoom · Drag to pan" : "🖱 Scroll to zoom · Drag to pan"}
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip (hidden on touch devices) */}
       {showTooltip && hovered && hoveredName && (
         <div
           className="absolute bg-black/90 text-slate-200 px-3.5 py-1.5 rounded-full text-[13px] font-semibold pointer-events-none border border-white/10 whitespace-nowrap shadow-lg z-50"
           style={{
-            left: Math.min(tooltipPos.x + 14, 680),
+            left: Math.min(tooltipPos.x + 14, tooltipMaxLeft),
             top: Math.max(tooltipPos.y - 36, 4),
           }}
         >
