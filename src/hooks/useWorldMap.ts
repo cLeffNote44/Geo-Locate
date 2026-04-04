@@ -22,7 +22,7 @@ export function useWorldMap(): WorldMapResult {
 
     let cancelled = false;
 
-    fetch("/world-50m.json")
+    fetch(import.meta.env.BASE_URL + "world-50m.json")
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
