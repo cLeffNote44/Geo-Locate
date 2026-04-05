@@ -19,7 +19,6 @@ export default function RegionSelectScreen({
 }: RegionSelectScreenProps) {
   const { features, loading } = useWorldMap();
   const [region, setRegion] = useState<RegionValue | null>(null);
-  const [antMsg, setAntMsg] = useState(false);
   const [countryCount, setCountryCount] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>(getDefaultDifficulty);
@@ -48,13 +47,7 @@ export default function RegionSelectScreen({
     setMapReady(true);
   }, [region, features]);
 
-  const handleSelect = (id: RegionValue | "antarctica") => {
-    if (id === "antarctica") {
-      setAntMsg(true);
-      setRegion(null);
-      return;
-    }
-    setAntMsg(false);
+  const handleSelect = (id: RegionValue) => {
     setRegion(id);
   };
 
@@ -93,21 +86,7 @@ export default function RegionSelectScreen({
 
       <RegionGrid selected={region} onSelect={handleSelect} />
 
-      {antMsg && (
-        <div className="mt-6 px-10 py-7 bg-red-500/10 border-2 border-red-500/35 rounded-2xl text-center max-w-[360px]">
-          <div className="text-4xl mb-2">🙄</div>
-          <div className="text-3xl font-black tracking-widest text-red-500 uppercase">
-            Lame Loser
-          </div>
-          <p className="text-red-300 mt-2.5 text-[15px]">
-            Antarctica has no countries.
-            <br />
-            Pick a real map, genius.
-          </p>
-        </div>
-      )}
-
-      {region && !antMsg && (
+      {region && (
         <div className="mt-6 text-center w-full max-w-[440px]">
           {loading || !mapReady ? (
             <div className="text-slate-500 text-[15px]">⏳ Loading map data...</div>
