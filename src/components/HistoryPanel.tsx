@@ -7,6 +7,7 @@ const MODE_TAGS: Record<string, string> = {
   flags: "Flags",
   capitals: "Capitals",
   daily: "Daily",
+  territory: "Territory",
 };
 
 interface HistoryPanelProps {

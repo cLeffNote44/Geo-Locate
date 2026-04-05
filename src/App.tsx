@@ -10,6 +10,7 @@ import GameScreen from "./screens/GameScreen";
 import ReviewScreen from "./screens/ReviewScreen";
 import StatsScreen from "./screens/StatsScreen";
 import SettingsScreen from "./screens/SettingsScreen";
+import TerritoryScreen from "./screens/TerritoryScreen";
 import TutorialOverlay from "./components/TutorialOverlay";
 
 const isEmbed = new URLSearchParams(window.location.search).has("embed");
@@ -76,6 +77,15 @@ export default function App() {
             mode="daily"
             region="world"
             difficulty="normal"
+            navigate={navigate}
+          />
+        );
+      case "territory":
+        return (
+          <TerritoryScreen
+            key={`territory-${screen.region}-${screen.difficulty}-${Date.now()}`}
+            region={screen.region}
+            difficulty={screen.difficulty}
             navigate={navigate}
           />
         );

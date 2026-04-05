@@ -1,5 +1,5 @@
 export type CountryId = string;
-export type GameMode = "classic" | "practice" | "timed" | "flags" | "capitals" | "speedrun" | "daily";
+export type GameMode = "classic" | "practice" | "timed" | "flags" | "capitals" | "speedrun" | "daily" | "territory";
 export type RegionValue =
   | "world"
   | "northAmerica"
@@ -72,6 +72,7 @@ export type Screen =
   | { kind: "menu" }
   | { kind: "regionSelect"; mode: GameMode }
   | { kind: "game"; mode: GameMode; region: RegionValue; difficulty: Difficulty }
+  | { kind: "territory"; region: RegionValue; difficulty: Difficulty }
   | { kind: "review"; summary: GameSummary }
   | { kind: "stats" }
   | { kind: "settings" }

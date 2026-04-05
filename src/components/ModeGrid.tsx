@@ -15,6 +15,7 @@ const MODES: ModeOption[] = [
   { mode: "speedrun", emoji: "🏁", name: "Speed Run", description: "All countries, fastest time wins" },
   { mode: "flags", emoji: "🏴", name: "Flags", description: "Identify countries by their flag" },
   { mode: "capitals", emoji: "🏛️", name: "Capitals", description: "Find countries by capital city" },
+  { mode: "territory", emoji: "⚔️", name: "Territory Wars", description: "Compete vs AI to control the map" },
 ];
 
 interface ModeGridProps {

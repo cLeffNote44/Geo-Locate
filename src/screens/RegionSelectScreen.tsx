@@ -53,7 +53,11 @@ export default function RegionSelectScreen({
 
   const startGame = () => {
     if (!region) return;
-    navigate({ kind: "game", mode, region, difficulty });
+    if (mode === "territory") {
+      navigate({ kind: "territory", region, difficulty });
+    } else {
+      navigate({ kind: "game", mode, region, difficulty });
+    }
   };
 
   const preset = DIFFICULTY_PRESETS[difficulty];
@@ -82,6 +86,7 @@ export default function RegionSelectScreen({
         {mode === "speedrun" && "Speed run — find every country as fast as possible!"}
         {mode === "flags" && "Identify countries by their flag"}
         {mode === "capitals" && "Find countries by their capital city"}
+        {mode === "territory" && "Compete against AI to claim the most territory!"}
       </p>
 
       <RegionGrid selected={region} onSelect={handleSelect} />
@@ -133,6 +138,7 @@ export default function RegionSelectScreen({
                 {mode === "practice" && "No penalties — take your time and learn!"}
                 {mode === "timed" && `${preset.timedDuration}s timer. Wrong answers cost 5 seconds!`}
                 {mode === "speedrun" && "No penalty for wrong clicks — just find them all fast!"}
+                {mode === "territory" && `AI accuracy: ${difficulty === "easy" ? "45%" : difficulty === "hard" ? "85%" : "65%"}. Wrong = AI claims territory + bonus!`}
               </p>
               <button
                 className="btn-primary !text-xl !px-11 !py-4"
